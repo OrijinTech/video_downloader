@@ -86,13 +86,15 @@ def update_progress_bar(current, total, speed=None, eta=None):
     progress = current / total if total else 0  # Calculate progress as a float between 0 and 1
     progress_bar.progress(min(max(progress, 0.0), 1.0))  # Streamlit expects a value from 0 to 1
     
-    # Display percentage, speed, and ETA without decimals for ETA
+    # Display percentage, speed, ETA, and total size in MB
+    total_size_mb = total / 1024 / 1024 if total else 0
+    downloaded_mb = current / 1024 / 1024
     status_text.text(
         f"Download progress: {int(progress * 100)}% | "  # Convert progress to a percentage
-        f"Speed: {speed / 1024 / 1024:.2f} MB/s | " if speed else "" +
-        f"ETA: {int(eta)} seconds" if eta else ""  # Display ETA as an integer
+        f"Downloaded: {downloaded_mb:.2f} MB / {total_size_mb:.2f} MB | " +
+        (f"Speed: {speed / 1024 / 1024:.2f} MB/s | " if speed else "") +
+        (f"ETA: {int(eta)} seconds" if eta else "")  # Display ETA as an integer
     )
-
 
 # Download button
 if st.button("Get Video"):
