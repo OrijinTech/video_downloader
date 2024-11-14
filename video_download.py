@@ -2,7 +2,6 @@ import streamlit as st
 import requests
 import yt_dlp
 import os
-import subprocess
 import tempfile
 from pathlib import Path
 
@@ -57,19 +56,6 @@ def download_with_ytdlp(url, save_path, progress_callback):
         st.error(f"An error occurred: {e}")
         return None
 
-# Function to fix video timestamps
-def fix_video_timestamps(input_file, output_file):
-    try:
-        subprocess.run([
-            "ffmpeg", "-i", input_file, "-c", "copy", output_file, "-y"
-        ], check=True)
-        os.remove(input_file)
-        os.rename(output_file, input_file)
-        return input_file
-    except subprocess.CalledProcessError as e:
-        st.error(f"An error occurred while fixing timestamps: {e}")
-        return None
-
 # Streamlit UI
 st.title("Video Downloader")
 
@@ -109,12 +95,8 @@ if st.button("Get Video"):
             else:
                 video_path = download_with_ytdlp(video_url, str(save_dir), update_progress_bar)
 
-            # Fix timestamps if a video was downloaded successfully
+            # Notify user of download completion
             if video_path:
-                fixed_video_path = save_dir / ("fixed_" + os.path.basename(video_path))
-                video_path = fix_video_timestamps(video_path, fixed_video_path) or video_path  # Update path if fix successful
-
-                # Notify user of download completion
                 st.success("Download completed!")            
 
                 # Use st.download_button to let the user download the video
