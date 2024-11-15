@@ -74,7 +74,7 @@ st.title("Video Downloader")
 
 # Input box for URL and save path
 video_url = st.text_input("Enter the video URL")
-save_dir = st.text_input("Enter save directory (e.g., /Users/mushr/Desktop)", value="/Users/mushr/Desktop")
+save_dir = save_dir = str(Path.home() / "Downloads")
 
 # Progress bar and status placeholders
 progress_bar = st.progress(0)
@@ -88,11 +88,20 @@ def update_progress_bar(current, total, speed=None, eta=None):
     # Display percentage, speed, ETA, and total size in MB
     total_size_mb = total / 1024 / 1024 if total else 0
     downloaded_mb = current / 1024 / 1024
+    
+    # Format ETA to hours, minutes, and seconds
+    if eta:
+        hours, remainder = divmod(eta, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        eta_formatted = f"{int(hours)}h {int(minutes)}m {int(seconds)}s"
+    else:
+        eta_formatted = "Unknown"
+    
     status_text.text(
         f"Download progress: {int(progress * 100)}% | "  # Convert progress to a percentage
         f"Downloaded: {downloaded_mb:.2f} MB / {total_size_mb:.2f} MB | " +
         (f"Speed: {speed / 1024 / 1024:.2f} MB/s | " if speed else "") +
-        (f"ETA: {int(eta)} seconds" if eta else "")  # Display ETA as an integer
+        f"ETA: {eta_formatted}"  # Display formatted ETA
     )
 
 # Download button
