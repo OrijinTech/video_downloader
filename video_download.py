@@ -3,7 +3,6 @@ import requests
 import yt_dlp
 import os
 import subprocess
-import tempfile
 from pathlib import Path
 
 # Function to download video directly
@@ -75,7 +74,7 @@ st.title("Video Downloader")
 
 # Input box for URL and save path
 video_url = st.text_input("Enter the video URL")
-save_dir = st.text_input("Enter save directory (e.g., downloads)", value="downloads")
+save_dir = st.text_input("Enter save directory (e.g., /Users/mushr/Desktop)", value="/Users/mushr/Desktop")
 
 # Progress bar and status placeholders
 progress_bar = st.progress(0)
@@ -99,32 +98,23 @@ def update_progress_bar(current, total, speed=None, eta=None):
 # Download button
 if st.button("Get Video"):
     if video_url:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            save_dir = Path(temp_dir)
-            save_dir.mkdir(parents=True, exist_ok=True)
+        # Ensure the save directory exists
+        save_path = Path(save_dir)
+        save_path.mkdir(parents=True, exist_ok=True)
 
-            # Check if the URL is a direct link to a video file
-            if any(video_url.endswith(ext) for ext in [".mp4", ".mov", ".avi", ".mkv"]):
-                video_path = download_direct_video(video_url, save_dir / "downloaded_video.mp4", lambda current, total: update_progress_bar(current, total))
-            else:
-                video_path = download_with_ytdlp(video_url, str(save_dir), update_progress_bar)
+        # Check if the URL is a direct link to a video file
+        if any(video_url.endswith(ext) for ext in [".mp4", ".mov", ".avi", ".mkv"]):
+            video_path = download_direct_video(video_url, save_path / "downloaded_video.mp4", lambda current, total: update_progress_bar(current, total))
+        else:
+            video_path = download_with_ytdlp(video_url, str(save_path), update_progress_bar)
 
-            # Fix timestamps if a video was downloaded successfully
-            if video_path:
-                fixed_video_path = save_dir / ("fixed_" + os.path.basename(video_path))
-                video_path = fix_video_timestamps(video_path, fixed_video_path) or video_path  # Update path if fix successful
+        # Fix timestamps if a video was downloaded successfully
+        if video_path:
+            fixed_video_path = save_path / ("fixed_" + os.path.basename(video_path))
+            video_path = fix_video_timestamps(video_path, fixed_video_path) or video_path  # Update path if fix successful
 
-                # Notify user of download completion
-                st.success("Download completed!")            
+            # Notify user of download completion
+            st.success("Download completed!")            
 
-                # Use st.download_button to let the user download the video
-                with open(video_path, "rb") as file:
-                    file_data = file.read()
-                    st.download_button(
-                        label="Save To...",
-                        data=file_data,
-                        file_name=os.path.basename(video_path),
-                        mime="video/mp4"
-                    )
     else:
         st.warning("Please enter a video URL.")
