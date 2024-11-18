@@ -4,11 +4,7 @@ import yt_dlp
 import os
 import subprocess
 from pathlib import Path
-import re
-
-# Function to sanitize filenames
-def sanitize_filename(name):
-    return re.sub(r'[^\w\s-]', '', name).strip().replace(' ', '_')
+from bs4 import BeautifulSoup
 
 # Function to download video directly
 def download_direct_video(url, save_path, progress_callback):
@@ -34,7 +30,7 @@ def download_direct_video(url, save_path, progress_callback):
         st.error(f"An error occurred: {e}")
         return None
 
-# yt_dlp download function with progress callback
+# yt-dlp download function with progress callback
 def download_with_ytdlp(url, save_path, progress_callback):
     def yt_dlp_progress_hook(d):
         if d['status'] == 'downloading':
@@ -43,7 +39,6 @@ def download_with_ytdlp(url, save_path, progress_callback):
             speed = d.get('speed', 0)
             eta = d.get('eta', 0)
 
-            # Update the progress bar and status text with percentage, speed, and ETA
             progress_callback(downloaded_bytes, total_bytes, speed, eta)
 
     ydl_opts = {
@@ -61,23 +56,52 @@ def download_with_ytdlp(url, save_path, progress_callback):
         st.error(f"An error occurred: {e}")
         return None
 
+# Function to extract direct video URL
+def get_direct_video_url(page_url):
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(page_url, headers=headers)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.text, 'html.parser')
+        video_tag = soup.find('video')
+        
+        if video_tag and video_tag.get('src'):
+            return video_tag['src']
+        else:
+            raise ValueError("Direct video URL not found on the page.")
+    except Exception as e:
+        st.error(f"An error occurred while fetching the direct video URL: {e}")
+        return None
+
+# Function to validate video file integrity
+def is_valid_video_file(file_path):
+    try:
+        result = subprocess.run(
+            ["ffmpeg", "-v", "error", "-i", str(file_path), "-f", "null", "-"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        return result.returncode == 0
+    except Exception as e:
+        st.error(f"Error during file validation: {e}")
+        return False
+
 # Function to fix video timestamps
 def fix_video_timestamps(input_file, output_file):
-    # Ensure input and output are Path objects
     input_file = Path(input_file)
     output_file = Path(output_file)
-
-    # Sanitize filename
-    sanitized_name = sanitize_filename(input_file.stem)
+    sanitized_name = input_file.stem
     sanitized_output_file = input_file.with_name(f"fixed_{sanitized_name}.mp4")
 
+    if not is_valid_video_file(input_file):
+        st.error(f"The input file '{input_file}' is not a valid video file.")
+        return None
+
     try:
-        # Run ffmpeg command
         subprocess.run([
             "ffmpeg", "-i", str(input_file), "-c", "copy", str(sanitized_output_file), "-y"
         ], check=True)
-
-        # Replace original file if successful
         os.remove(input_file)
         os.rename(sanitized_output_file, input_file)
         return input_file
@@ -85,74 +109,62 @@ def fix_video_timestamps(input_file, output_file):
         st.error(f"An error occurred while fixing timestamps: {e}")
         return None
 
+# Function to validate save directory
+def validate_save_dir(directory):
+    try:
+        save_path = Path(directory)
+        save_path.mkdir(parents=True, exist_ok=True)
+        return save_path
+    except Exception as e:
+        st.error(f"An error occurred while creating save directory: {e}")
+        return None
+
 # Streamlit UI
 st.title("Video Downloader")
 
-# Input box for URL
 video_url = st.text_input("Enter the video URL")
+save_dir = st.text_input("Enter save directory", value=str(Path.home() / "Downloads"))
 
-# Input box for save directory with validation
-save_dir = st.text_input("Enter save directory (e.g., /Users/mushr/Desktop)", value="/Users/mushr/Desktop")
-
-# Validate the save directory
-def validate_save_dir(path):
-    try:
-        save_path = Path(path)
-        save_path.mkdir(parents=True, exist_ok=True)  # Create directory if it doesn't exist
-        return save_path
-    except Exception as e:
-        st.error(f"Invalid save directory: {e}")
-        return None
-
-# Progress bar and status placeholders
 progress_bar = st.progress(0)
 status_text = st.empty()
 
 # Progress update function
 def update_progress_bar(current, total, speed=None, eta=None):
-    progress = current / total if total else 0  # Calculate progress as a float between 0 and 1
-    progress_bar.progress(min(max(progress, 0.0), 1.0))  # Streamlit expects a value from 0 to 1
-    
-    # Display percentage, speed, ETA, and total size in MB
+    progress = current / total if total else 0
+    progress_bar.progress(min(max(progress, 0.0), 1.0))
     total_size_mb = total / 1024 / 1024 if total else 0
     downloaded_mb = current / 1024 / 1024
-    
-    # Format ETA to hours, minutes, and seconds
+    eta_formatted = "Unknown"
     if eta:
         hours, remainder = divmod(eta, 3600)
         minutes, seconds = divmod(remainder, 60)
         eta_formatted = f"{int(hours)}h {int(minutes)}m {int(seconds)}s"
-    else:
-        eta_formatted = "Unknown"
     
     status_text.text(
-        f"Download progress: {int(progress * 100)}% | "  # Convert progress to a percentage
+        f"Progress: {int(progress * 100)}% | "
         f"Downloaded: {downloaded_mb:.2f} MB / {total_size_mb:.2f} MB | " +
         (f"Speed: {speed / 1024 / 1024:.2f} MB/s | " if speed else "") +
-        f"ETA: {eta_formatted}"  # Display formatted ETA
+        f"ETA: {eta_formatted}"
     )
 
 # Download button
 if st.button("Get Video"):
     if video_url:
-        # Validate and process the save directory
         save_path = validate_save_dir(save_dir)
         if not save_path:
             st.warning("Please enter a valid save directory.")
         else:
-            # Check if the URL is a direct link to a video file
-            if any(video_url.endswith(ext) for ext in [".mp4", ".mov", ".avi", ".mkv"]):
-                video_path = download_direct_video(video_url, save_path / "downloaded_video.mp4", lambda current, total: update_progress_bar(current, total))
-            else:
-                video_path = download_with_ytdlp(video_url, str(save_path), update_progress_bar)
+            video_path = download_with_ytdlp(video_url, str(save_path), update_progress_bar)
 
-            # Fix timestamps if a video was downloaded successfully
+            if not video_path:
+                st.info("Trying to fetch the direct video URL...")
+                direct_video_url = get_direct_video_url(video_url)
+                if direct_video_url:
+                    video_path = download_direct_video(direct_video_url, save_path / "downloaded_video.mp4", update_progress_bar)
+
             if video_path:
                 fixed_video_path = save_path / ("fixed_" + os.path.basename(video_path))
-                video_path = fix_video_timestamps(video_path, fixed_video_path) or video_path  # Update path if fix successful
-
-                # Notify user of download completion
-                st.success("Download completed!")            
-
+                video_path = fix_video_timestamps(video_path, fixed_video_path) or video_path
+                st.success("Download completed!")
     else:
         st.warning("Please enter a video URL.")
