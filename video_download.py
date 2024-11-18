@@ -74,7 +74,7 @@ st.title("Video Downloader")
 
 # Input box for URL and save path
 video_url = st.text_input("Enter the video URL")
-save_dir = save_dir = str(Path.home() / "Downloads")
+save_dir = st.text_input("Enter save directory (e.g., /Users/mushr/Desktop)", value="/Users/mushr/Desktop")
 
 # Progress bar and status placeholders
 progress_bar = st.progress(0)
@@ -103,6 +103,7 @@ def update_progress_bar(current, total, speed=None, eta=None):
         (f"Speed: {speed / 1024 / 1024:.2f} MB/s | " if speed else "") +
         f"ETA: {eta_formatted}"  # Display formatted ETA
     )
+
 
 # Download button
 if st.button("Get Video"):
