@@ -154,17 +154,23 @@ if st.button("Get Video"):
         if not save_path:
             st.warning("Please enter a valid save directory.")
         else:
+            # Attempt to download with yt-dlp
             video_path = download_with_ytdlp(video_url, str(save_path), update_progress_bar)
 
+            # Fallback to direct download if yt-dlp fails
             if not video_path:
                 st.info("Trying to fetch the direct video URL...")
                 direct_video_url = get_direct_video_url(video_url)
                 if direct_video_url:
                     video_path = download_direct_video(direct_video_url, save_path / "downloaded_video.mp4", update_progress_bar)
 
+            # Validate and fix timestamps if a video was downloaded
             if video_path:
-                fixed_video_path = save_path / ("fixed_" + os.path.basename(video_path))
-                video_path = fix_video_timestamps(video_path, fixed_video_path) or video_path
-                st.success("Download completed!")
+                if is_valid_video_file(video_path):
+                    fixed_video_path = save_path / ("fixed_" + os.path.basename(video_path))
+                    video_path = fix_video_timestamps(video_path, fixed_video_path) or video_path
+                    st.success("Download completed!")
+                else:
+                    st.error(f"The video file '{video_path}' is corrupted or invalid.")
     else:
         st.warning("Please enter a video URL.")
