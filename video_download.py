@@ -63,11 +63,15 @@ def download_with_ytdlp(url, save_path, progress_callback):
 
 # Function to fix video timestamps
 def fix_video_timestamps(input_file, output_file):
-    try:
-        # Sanitize filename
-        sanitized_name = sanitize_filename(input_file.stem)
-        sanitized_output_file = input_file.with_name(f"fixed_{sanitized_name}.mp4")
+    # Ensure input and output are Path objects
+    input_file = Path(input_file)
+    output_file = Path(output_file)
 
+    # Sanitize filename
+    sanitized_name = sanitize_filename(input_file.stem)
+    sanitized_output_file = input_file.with_name(f"fixed_{sanitized_name}.mp4")
+
+    try:
         # Run ffmpeg command
         subprocess.run([
             "ffmpeg", "-i", str(input_file), "-c", "copy", str(sanitized_output_file), "-y"
