@@ -72,9 +72,21 @@ def fix_video_timestamps(input_file, output_file):
 # Streamlit UI
 st.title("Video Downloader")
 
-# Input box for URL and save path
+# Input box for URL
 video_url = st.text_input("Enter the video URL")
+
+# Input box for save directory with validation
 save_dir = st.text_input("Enter save directory (e.g., /Users/mushr/Desktop)", value="/Users/mushr/Desktop")
+
+# Validate the save directory
+def validate_save_dir(path):
+    try:
+        save_path = Path(path)
+        save_path.mkdir(parents=True, exist_ok=True)  # Create directory if it doesn't exist
+        return save_path
+    except Exception as e:
+        st.error(f"Invalid save directory: {e}")
+        return None
 
 # Progress bar and status placeholders
 progress_bar = st.progress(0)
@@ -104,27 +116,27 @@ def update_progress_bar(current, total, speed=None, eta=None):
         f"ETA: {eta_formatted}"  # Display formatted ETA
     )
 
-
 # Download button
 if st.button("Get Video"):
     if video_url:
-        # Ensure the save directory exists
-        save_path = Path(save_dir)
-        save_path.mkdir(parents=True, exist_ok=True)
-
-        # Check if the URL is a direct link to a video file
-        if any(video_url.endswith(ext) for ext in [".mp4", ".mov", ".avi", ".mkv"]):
-            video_path = download_direct_video(video_url, save_path / "downloaded_video.mp4", lambda current, total: update_progress_bar(current, total))
+        # Validate and process the save directory
+        save_path = validate_save_dir(save_dir)
+        if not save_path:
+            st.warning("Please enter a valid save directory.")
         else:
-            video_path = download_with_ytdlp(video_url, str(save_path), update_progress_bar)
+            # Check if the URL is a direct link to a video file
+            if any(video_url.endswith(ext) for ext in [".mp4", ".mov", ".avi", ".mkv"]):
+                video_path = download_direct_video(video_url, save_path / "downloaded_video.mp4", lambda current, total: update_progress_bar(current, total))
+            else:
+                video_path = download_with_ytdlp(video_url, str(save_path), update_progress_bar)
 
-        # Fix timestamps if a video was downloaded successfully
-        if video_path:
-            fixed_video_path = save_path / ("fixed_" + os.path.basename(video_path))
-            video_path = fix_video_timestamps(video_path, fixed_video_path) or video_path  # Update path if fix successful
+            # Fix timestamps if a video was downloaded successfully
+            if video_path:
+                fixed_video_path = save_path / ("fixed_" + os.path.basename(video_path))
+                video_path = fix_video_timestamps(video_path, fixed_video_path) or video_path  # Update path if fix successful
 
-            # Notify user of download completion
-            st.success("Download completed!")            
+                # Notify user of download completion
+                st.success("Download completed!")            
 
     else:
         st.warning("Please enter a video URL.")
