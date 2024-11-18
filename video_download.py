@@ -4,6 +4,11 @@ import yt_dlp
 import os
 import subprocess
 from pathlib import Path
+import re
+
+# Function to sanitize filenames
+def sanitize_filename(name):
+    return re.sub(r'[^\w\s-]', '', name).strip().replace(' ', '_')
 
 # Function to download video directly
 def download_direct_video(url, save_path, progress_callback):
@@ -59,11 +64,18 @@ def download_with_ytdlp(url, save_path, progress_callback):
 # Function to fix video timestamps
 def fix_video_timestamps(input_file, output_file):
     try:
+        # Sanitize filename
+        sanitized_name = sanitize_filename(input_file.stem)
+        sanitized_output_file = input_file.with_name(f"fixed_{sanitized_name}.mp4")
+
+        # Run ffmpeg command
         subprocess.run([
-            "ffmpeg", "-i", input_file, "-c", "copy", output_file, "-y"
+            "ffmpeg", "-i", str(input_file), "-c", "copy", str(sanitized_output_file), "-y"
         ], check=True)
+
+        # Replace original file if successful
         os.remove(input_file)
-        os.rename(output_file, input_file)
+        os.rename(sanitized_output_file, input_file)
         return input_file
     except subprocess.CalledProcessError as e:
         st.error(f"An error occurred while fixing timestamps: {e}")
